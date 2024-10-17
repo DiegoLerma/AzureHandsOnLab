@@ -34,9 +34,6 @@ service_region = os.environ["AZURE_SPEECH_REGION"]
 speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
 speech_config.speech_synthesis_voice_name = "es-ES-AlvaroNeural"  # Puedes cambiar la voz según tus necesidades
 
-# Configurar el formato de salida de audio si lo deseas
-# speech_config.set_speech_synthesis_output_format(speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3)
-
 # Crear un sintetizador de habla (sin especificar audio_config para obtener audio en bytes)
 speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
 
@@ -93,10 +90,15 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            # Añadir el mensaje del sistema
+            messages = [
+                {"role": "system", "content": "Eres un contador de historias de terror experto."},
+                {"role": "user", "content": data}
+            ]
             azure_open_ai_response = await client.chat.completions.create(
                 model=deployment,
                 temperature=temperature,
-                messages=[{"role": "user", "content": data}],
+                messages=messages,
                 stream=True
             )
             await stream_processor(azure_open_ai_response, websocket)
