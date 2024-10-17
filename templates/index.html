@@ -26,6 +26,7 @@
             font-size: 16px;
             padding: 10px 20px;
             cursor: pointer;
+            margin-right: 5px;
         }
 
         #responses {
@@ -56,14 +57,17 @@
     <h1>Cliente Azure OpenAI con Síntesis de Voz</h1>
     <textarea id="messageText" rows="4" placeholder="Escribe tu mensaje aquí..."></textarea><br>
     <button onclick="sendMessage()">Enviar</button>
+    <button onclick="pauseAudio()">Pausar</button>
+    <button onclick="stopAudio()">Detener</button>
     <h2>Respuestas:</h2>
     <div id="responses"></div>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8000/ws");
+        const ws = new WebSocket("ws://127.0.0.1:8000/ws");
         const responsesDiv = document.getElementById('responses');
         const audioQueue = [];
         let isPlayingAudio = false;
+        let currentAudioElement = null;
 
         ws.onopen = function() {
             console.log("Conexión WebSocket establecida.");
@@ -128,22 +132,47 @@
 
             isPlayingAudio = true;
             const url = audioQueue.shift();
-            const audioElement = new Audio(url);
+            currentAudioElement = new Audio(url);
 
-            audioElement.onended = function() {
+            currentAudioElement.onended = function() {
                 // Liberar el objeto URL creado
                 URL.revokeObjectURL(url);
+                currentAudioElement = null;
                 // Reproducir el siguiente audio en la cola
                 playNextAudio();
             };
 
-            audioElement.onerror = function(e) {
+            currentAudioElement.onerror = function(e) {
                 console.error("Error al reproducir el audio:", e);
                 // Intentar reproducir el siguiente audio
+                currentAudioElement = null;
                 playNextAudio();
             };
 
-            audioElement.play();
+            currentAudioElement.play();
+        }
+
+        function pauseAudio() {
+            if (currentAudioElement) {
+                if (!currentAudioElement.paused) {
+                    currentAudioElement.pause();
+                    console.log("Audio pausado.");
+                } else {
+                    currentAudioElement.play();
+                    console.log("Audio reanudado.");
+                }
+            }
+        }
+
+        function stopAudio() {
+            if (currentAudioElement) {
+                currentAudioElement.pause();
+                currentAudioElement.currentTime = 0;
+                currentAudioElement = null;
+                isPlayingAudio = false;
+                audioQueue.length = 0; // Limpiar la cola de audio
+                console.log("Reproducción detenida y cola de audio vaciada.");
+            }
         }
 
         function sendMessage() {
@@ -166,6 +195,10 @@
 
             // Limpiar el campo de texto
             messageTextArea.value = "";
+
+            // Reiniciar el acumulador del asistente para una nueva respuesta
+            assistantMessageDiv = null;
+            assistantMessageContent = "";
         }
 
         // Acumulador para el mensaje del asistente
