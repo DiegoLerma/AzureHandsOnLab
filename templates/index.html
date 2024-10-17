@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Azure OpenAI WebSocket Client</title>
+</head>
+<body>
+    <h1>Azure OpenAI WebSocket Client</h1>
+    <textarea id="messageText" rows="4" cols="50" placeholder="Enter your message"></textarea><br>
+    <button onclick="sendMessage()">Send</button>
+    <h2>Responses:</h2>
+    <div id="responses"></div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onmessage = function(event) {
+            const responsesDiv = document.getElementById('responses');
+            const newResponse = document.createElement('span');
+            newResponse.textContent = event.data;
+            responsesDiv.appendChild(newResponse);
+        };
+
+        function sendMessage() {
+            const messageText = document.getElementById('messageText').value;
+            ws.send(messageText);
+        }
+    </script>
+</body>
+</html>
