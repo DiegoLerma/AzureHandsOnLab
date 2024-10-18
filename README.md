@@ -1,6 +1,8 @@
 # AzureHandsOnLab
 
-![fireplace](images/fireplace.gif)
+<p style="text-align: center;">
+  <img src="images/azure.png" alt="fireplace" style="width: 300px; display: block; margin: 0 auto;"/>
+</p>
 
 ¡Bienvenido al **Azure Hands-On Lab**! Este proyecto tiene como objetivo mostrar cómo integrar servicios de **Azure OpenAI** y **Azure AI Services** en una aplicación interactiva. Además, aprenderás a implementar este proyecto fácilmente utilizando **GitHub Codespaces** para que no tengas que instalar nada en tu máquina local.
 

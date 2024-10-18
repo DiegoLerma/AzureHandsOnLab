@@ -7,12 +7,15 @@ import openai
 import uvicorn
 from dotenv import load_dotenv
 import azure.cognitiveservices.speech as speechsdk
+from fastapi.staticfiles import StaticFiles
+
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
 # Configurar la aplicación FastAPI
 app = FastAPI()
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 # Autenticación y configuración de Azure OpenAI
 endpoint = os.environ["AZURE_OPEN_AI_ENDPOINT"]  # Endpoint de Azure OpenAI
@@ -141,5 +144,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close()
 
 if __name__ == "__main__":
-    # Iniciar el servidor Uvicorn para ejecutar la aplicación
-    uvicorn.run("main:app", host="127.0.0.1", port=8000)
+    host = os.environ.get("HOST", "127.0.0.1")
+    uvicorn.run("main:app", host=host, port=8000)
+
