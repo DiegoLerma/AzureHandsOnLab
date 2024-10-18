@@ -2,219 +2,228 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Azure OpenAI WebSocket Client con Síntesis de Voz</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storyteller de Historias de Terror</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos para mejorar la interfaz de usuario */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-
-        h1 {
-            color: #333;
+        .animate-twinkle {
+            animation: twinkle 2s infinite;
         }
-
-        textarea {
-            width: 100%;
-            max-width: 600px;
-            font-size: 16px;
-            padding: 10px;
-            margin-bottom: 10px;
+        .pixelated {
+            image-rendering: pixelated;
         }
-
-        button {
-            font-size: 16px;
-            padding: 10px 20px;
-            cursor: pointer;
-            margin-right: 5px;
+        .pixel-button {
+            font-family: 'VT323', monospace;
+            image-rendering: pixelated;
+            box-shadow: 0 4px 0 #000;
+            transition: all 0.1s;
         }
-
-        #responses {
-            margin-top: 20px;
-            max-width: 600px;
+        .pixel-button:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #000;
         }
-
-        .response {
-            margin-bottom: 15px;
-            white-space: pre-wrap; /* Permite respetar saltos de línea */
-        }
-
-        .user-message {
-            color: #0066cc;
-            font-weight: bold;
-        }
-
-        .assistant-message {
-            color: #333;
-        }
-
-        .error-message {
-            color: red;
+        .neon-text {
+            text-shadow: 0 0 3px #fff, 0 0 6px #fff, 0 0 9px #fff, 0 0 12px #fff;
         }
     </style>
 </head>
-<body>
-    <h1>Cliente Azure OpenAI con Síntesis de Voz</h1>
-    <textarea id="messageText" rows="4" placeholder="Escribe tu mensaje aquí..."></textarea><br>
-    <button onclick="sendMessage()">Enviar</button>
-    <button onclick="pauseAudio()">Pausar</button>
-    <button onclick="stopAudio()">Detener</button>
-    <h2>Respuestas:</h2>
-    <div id="responses"></div>
+<body class="bg-black min-h-screen flex flex-col items-center p-4 relative font-['VT323'] text-xl">
+    <!-- Estrellas en movimiento -->
+    <div id="stars" class="fixed inset-0"></div>
+
+    <div class="w-full max-w-4xl z-10 flex flex-col items-center">
+        <h1 class="text-9xl font-bold text-white text-center mt-12 mb-2 pixelated neon-text">Terror 404</h1>
+        <div class="mb-6 relative">
+            <div class="w-64 h-64 mx-auto">
+                <img src="../images/fireplace.gif" alt="Fogata pixel art" class="pixelated w-full h-full">
+            </div>
+        <h2 class="text-2xl text-gray-400 text-center mb-4">By Diego Lerma</h2>
+        </div>
+
+
+        <div class="flex mb-6 w-full">
+            <input type="text" id="messageInput" placeholder="Ingresa un tema para tu historia de terror..."
+                   class="flex-grow mr-2 bg-gray-800 text-white border-gray-700 rounded p-2 pixelated text-xl">
+            <button id="sendButton" class="pixel-button bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded text-2xl">
+                Generar
+            </button>
+        </div>
+
+        <div class="flex justify-center space-x-6 mb-6">
+            <button id="playPauseButton" class="pixel-button bg-yellow-600 hover:bg-yellow-700 text-white font-bold p-2 rounded w-32 h-12 text-xl" disabled>
+                Pausa
+            </button>
+            <button id="stopButton" class="pixel-button bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded w-32 h-12 text-xl" disabled>
+                Detener
+            </button>
+        </div>
+    </div>
+
+    <div class="w-full max-w-6xl px-8 z-10">
+        <p id="storyText" class="text-white font-bold text-2xl whitespace-pre-wrap"></p>
+    </div>
 
     <script>
-        const ws = new WebSocket("ws://127.0.0.1:8000/ws");
-        const responsesDiv = document.getElementById('responses');
-        const audioQueue = [];
-        let isPlayingAudio = false;
-        let currentAudioElement = null;
+        // Generar estrellas
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 50; i++) {
+            const star = document.createElement('div');
+            star.className = 'absolute w-1 h-1 bg-white rounded-full animate-twinkle';
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            star.style.animationDelay = `${Math.random() * 2}s`;
+            starsContainer.appendChild(star);
+        }
 
-        ws.onopen = function() {
-            console.log("Conexión WebSocket establecida.");
-        };
+        // Variables globales
+        let ws;
+        let audioQueue = [];
+        let currentAudio = null;
+        let isPlaying = false;
 
-        ws.onmessage = function(event) {
-            const message = event.data;
+        // Elementos del DOM
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const playPauseButton = document.getElementById('playPauseButton');
+        const stopButton = document.getElementById('stopButton');
+        const storyText = document.getElementById('storyText');
 
-            if (message.startsWith("__AUDIO__:")) {
-                // Manejar mensaje de audio
-                const audioBase64 = message.replace("__AUDIO__:", "");
-                const audioBytes = atob(audioBase64);
-                const arrayBuffer = new Uint8Array(audioBytes.length);
-                for (let i = 0; i < audioBytes.length; i++) {
-                    arrayBuffer[i] = audioBytes.charCodeAt(i);
+        // Iniciar conexión WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket("ws://127.0.0.1:8000/ws");
+
+            ws.onopen = () => {
+                console.log("Conexión WebSocket establecida");
+                sendButton.disabled = false;
+            };
+
+            ws.onmessage = (event) => {
+                const message = event.data;
+                if (message.startsWith("__AUDIO__:")) {
+                    handleAudioMessage(message);
+                } else if (message.startsWith("__ERROR__:")) {
+                    console.error("Error:", message.replace("__ERROR__:", ""));
+                } else {
+                    storyText.textContent += message;
                 }
-                const blob = new Blob([arrayBuffer], { type: 'audio/wav' }); // Ajusta el tipo MIME si es necesario
-                const url = URL.createObjectURL(blob);
+            };
 
-                // Añadir el audio a la cola
-                audioQueue.push(url);
+            ws.onerror = (error) => {
+                console.error("Error de WebSocket:", error);
+            };
 
-                // Intentar reproducir el siguiente audio si no hay otro reproduciéndose
-                if (!isPlayingAudio) {
-                    playNextAudio();
-                }
+            ws.onclose = () => {
+                console.log("Conexión WebSocket cerrada");
+                sendButton.disabled = true;
+            };
+        }
 
-            } else if (message.startsWith("__ERROR__:")) {
-                // Manejar mensajes de error
-                const errorMessage = message.replace("__ERROR__:", "");
-                console.error("Error de síntesis de voz:", errorMessage);
-
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'response error-message';
-                errorDiv.textContent = "Error: " + errorMessage;
-                responsesDiv.appendChild(errorDiv);
-
-            } else {
-                // Manejar mensajes de texto
-                updateAssistantMessage(message);
+        // Manejar mensajes de audio
+        function handleAudioMessage(message) {
+            const audioBase64 = message.replace("__AUDIO__:", "");
+            const audioBytes = atob(audioBase64);
+            const arrayBuffer = new Uint8Array(audioBytes.length);
+            for (let i = 0; i < audioBytes.length; i++) {
+                arrayBuffer[i] = audioBytes.charCodeAt(i);
             }
+            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            audioQueue.push(url);
 
-            // Desplazar hacia abajo para ver el último mensaje
-            responsesDiv.scrollTop = responsesDiv.scrollHeight;
-        };
+            if (!isPlaying) {
+                playNextAudio();
+            }
+        }
 
-        ws.onerror = function(event) {
-            console.error("WebSocket error:", event);
-            alert("Ocurrió un error en la conexión WebSocket.");
-        };
-
-        ws.onclose = function() {
-            console.warn("La conexión WebSocket se ha cerrado.");
-            alert("La conexión con el servidor se ha cerrado.");
-        };
-
+        // Reproducir siguiente audio en la cola
         function playNextAudio() {
             if (audioQueue.length === 0) {
-                isPlayingAudio = false;
+                isPlaying = false;
+                playPauseButton.disabled = true;
+                stopButton.disabled = true;
                 return;
             }
 
-            isPlayingAudio = true;
+            isPlaying = true;
+            playPauseButton.disabled = false;
+            stopButton.disabled = false;
+            playPauseButton.textContent = 'Pausar';
             const url = audioQueue.shift();
-            currentAudioElement = new Audio(url);
+            currentAudio = new Audio(url);
 
-            currentAudioElement.onended = function() {
-                // Liberar el objeto URL creado
+            currentAudio.onended = () => {
                 URL.revokeObjectURL(url);
-                currentAudioElement = null;
-                // Reproducir el siguiente audio en la cola
+                currentAudio = null;
                 playNextAudio();
             };
 
-            currentAudioElement.onerror = function(e) {
-                console.error("Error al reproducir el audio:", e);
-                // Intentar reproducir el siguiente audio
-                currentAudioElement = null;
+            currentAudio.onerror = (e) => {
+                console.error("Error al reproducir audio:", e);
+                currentAudio = null;
                 playNextAudio();
             };
 
-            currentAudioElement.play();
+            currentAudio.play();
         }
 
-        function pauseAudio() {
-            if (currentAudioElement) {
-                if (!currentAudioElement.paused) {
-                    currentAudioElement.pause();
-                    console.log("Audio pausado.");
+        // Enviar mensaje
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+                messageInput.value = '';
+                storyText.textContent = '';
+            } else {
+                console.error("WebSocket no está conectado");
+            }
+        }
+
+        // Pausar/Reproducir audio
+        function togglePlayPause() {
+            if (currentAudio) {
+                if (currentAudio.paused) {
+                    currentAudio.play();
+                    playPauseButton.textContent = 'Pausar';
                 } else {
-                    currentAudioElement.play();
-                    console.log("Audio reanudado.");
+                    currentAudio.pause();
+                    playPauseButton.textContent = 'Reproducir';
                 }
             }
         }
 
+        // Detener audio
         function stopAudio() {
-            if (currentAudioElement) {
-                currentAudioElement.pause();
-                currentAudioElement.currentTime = 0;
-                currentAudioElement = null;
-                isPlayingAudio = false;
-                audioQueue.length = 0; // Limpiar la cola de audio
-                console.log("Reproducción detenida y cola de audio vaciada.");
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
             }
+            audioQueue = [];
+            isPlaying = false;
+            playPauseButton.disabled = true;
+            stopButton.disabled = true;
         }
 
-        function sendMessage() {
-            const messageTextArea = document.getElementById('messageText');
-            const messageText = messageTextArea.value.trim();
-
-            if (messageText === "") {
-                alert("Por favor, ingresa un mensaje antes de enviar.");
-                return;
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        playPauseButton.addEventListener('click', togglePlayPause);
+        stopButton.addEventListener('click', stopAudio);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
             }
+        });
 
-            // Enviar mensaje al servidor
-            ws.send(messageText);
-
-            // Mostrar el mensaje del usuario en la interfaz
-            const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'response user-message';
-            userMessageDiv.textContent = "Tú: " + messageText;
-            responsesDiv.appendChild(userMessageDiv);
-
-            // Limpiar el campo de texto
-            messageTextArea.value = "";
-
-            // Reiniciar el acumulador del asistente para una nueva respuesta
-            assistantMessageDiv = null;
-            assistantMessageContent = "";
-        }
-
-        // Acumulador para el mensaje del asistente
-        let assistantMessageDiv = null;
-        let assistantMessageContent = "";
-
-        function updateAssistantMessage(newText) {
-            if (!assistantMessageDiv) {
-                assistantMessageDiv = document.createElement('div');
-                assistantMessageDiv.className = 'response assistant-message';
-                assistantMessageDiv.style.whiteSpace = 'pre-wrap'; // Respetar saltos de línea
-                responsesDiv.appendChild(assistantMessageDiv);
-            }
-            assistantMessageContent += newText;
-            assistantMessageDiv.textContent = assistantMessageContent;
-        }
+        // Iniciar conexión WebSocket al cargar la página
+        connectWebSocket();
     </script>
 </body>
 </html>
