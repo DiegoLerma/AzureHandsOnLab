@@ -1,14 +1,23 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Metadatos básicos -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Título de la página (puedes cambiarlo) -->
     <title>Storyteller de Historias de Terror</title>
+
+    <!-- Importación de fuentes y estilos externos -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Fuente pixelada (puedes cambiar la fuente aquí) -->
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS para estilos rápidos -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Estilos personalizados -->
     <style>
+        /* Animación de parpadeo para las estrellas */
         @keyframes twinkle {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -16,103 +25,119 @@
         .animate-twinkle {
             animation: twinkle 2s infinite;
         }
+        /* Estilo para imágenes pixeladas */
         .pixelated {
             image-rendering: pixelated;
         }
+        /* Estilos para los botones con efecto pixel */
         .pixel-button {
-            font-family: 'VT323', monospace;
+            font-family: 'VT323', monospace; /* Cambia la fuente si lo deseas */
             image-rendering: pixelated;
-            box-shadow: 0 4px 0 #000;
+            box-shadow: 0 4px 0 #000; /* Sombra del botón */
             transition: all 0.1s;
         }
         .pixel-button:active {
-            transform: translateY(4px);
+            transform: translateY(4px); /* Efecto al presionar */
             box-shadow: 0 0 0 #000;
         }
+        /* Efecto de texto neón */
         .neon-text {
             text-shadow: 0 0 3px #fff, 0 0 6px #fff, 0 0 9px #fff, 0 0 12px #fff;
         }
     </style>
 </head>
 <body class="bg-black min-h-screen flex flex-col items-center p-4 relative font-['VT323'] text-xl">
-    <!-- Estrellas en movimiento -->
+    <!-- Fondo de estrellas animadas -->
     <div id="stars" class="fixed inset-0"></div>
 
+    <!-- Contenedor principal -->
     <div class="w-full max-w-4xl z-10 flex flex-col items-center">
+        <!-- Título principal (cambia el texto "Terror 404" aquí) -->
         <h1 class="text-9xl font-bold text-white text-center mt-12 mb-2 pixelated neon-text">Terror 404</h1>
         <div class="mb-6 relative">
+            <!-- Imagen central (cambia la ruta o imagen aquí) -->
             <div class="w-64 h-64 mx-auto">
                 <img src="../images/fireplace.gif" alt="Fogata pixel art" class="pixelated w-full h-full">
             </div>
-        <h2 class="text-2xl text-gray-400 text-center mb-4">By Diego Lerma</h2>
+            <!-- Subtítulo (cambia el texto "By Diego Lerma" aquí) -->
+            <h2 class="text-2xl text-gray-400 text-center mb-4">By Diego Lerma</h2>
         </div>
 
-
+        <!-- Campo de entrada y botón de generar -->
         <div class="flex mb-6 w-full">
+            <!-- Placeholder del input (cambia el texto si lo deseas) -->
             <input type="text" id="messageInput" placeholder="Ingresa un tema para tu historia de terror..."
                    class="flex-grow mr-2 bg-gray-800 text-white border-gray-700 rounded p-2 pixelated text-xl">
+            <!-- Texto del botón (cambia "Generar" si lo deseas) -->
             <button id="sendButton" class="pixel-button bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded text-2xl">
                 Generar
             </button>
         </div>
 
+        <!-- Botones de control de audio -->
         <div class="flex justify-center space-x-6 mb-6">
+            <!-- Botón de pausa/reproducción (puedes cambiar el texto "Pausa") -->
             <button id="playPauseButton" class="pixel-button bg-yellow-600 hover:bg-yellow-700 text-white font-bold p-2 rounded w-32 h-12 text-xl" disabled>
                 Pausa
             </button>
+            <!-- Botón de detener (cambia el texto "Detener" si lo deseas) -->
             <button id="stopButton" class="pixel-button bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded w-32 h-12 text-xl" disabled>
                 Detener
             </button>
         </div>
     </div>
 
+    <!-- Contenedor para mostrar la historia generada -->
     <div class="w-full max-w-6xl px-8 z-10">
-        <p id="storyText" class="text-white font-bold text-2xl whitespace-pre-wrap"></p>
+        <p id="storyText" class="text-white font-bold text-6xl whitespace-pre-wrap"></p>
     </div>
 
+    <!-- Scripts -->
     <script>
-        // Generar estrellas
+        // Generación de estrellas animadas en el fondo
         const starsContainer = document.getElementById('stars');
         for (let i = 0; i < 50; i++) {
             const star = document.createElement('div');
             star.className = 'absolute w-1 h-1 bg-white rounded-full animate-twinkle';
+            // Posición aleatoria
             star.style.top = `${Math.random() * 100}%`;
             star.style.left = `${Math.random() * 100}%`;
+            // Duración y retraso aleatorios para la animación
             star.style.animationDuration = `${Math.random() * 3 + 2}s`;
             star.style.animationDelay = `${Math.random() * 2}s`;
             starsContainer.appendChild(star);
         }
 
-        // Variables globales
-        let ws;
-        let audioQueue = [];
-        let currentAudio = null;
-        let isPlaying = false;
+        // Variables globales para manejo de audio y WebSocket
+        let ws; // Conexión WebSocket
+        let audioQueue = []; // Cola de URLs de audio
+        let currentAudio = null; // Objeto Audio en reproducción
+        let isPlaying = false; // Indicador de reproducción
 
         // Elementos del DOM
-        const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
-        const playPauseButton = document.getElementById('playPauseButton');
-        const stopButton = document.getElementById('stopButton');
-        const storyText = document.getElementById('storyText');
+        const messageInput = document.getElementById('messageInput'); // Campo de entrada
+        const sendButton = document.getElementById('sendButton'); // Botón para enviar el tema
+        const playPauseButton = document.getElementById('playPauseButton'); // Botón de pausa/reproducción
+        const stopButton = document.getElementById('stopButton'); // Botón de detener
+        const storyText = document.getElementById('storyText'); // Contenedor del texto de la historia
 
-        // Iniciar conexión WebSocket
+        // Función para conectar con el servidor mediante WebSocket
         function connectWebSocket() {
-            ws = new WebSocket("ws://127.0.0.1:8000/ws");
+            ws = new WebSocket("ws://127.0.0.1:8000/ws"); // Asegúrate de que la URL coincida con tu servidor
 
             ws.onopen = () => {
                 console.log("Conexión WebSocket establecida");
-                sendButton.disabled = false;
+                sendButton.disabled = false; // Habilita el botón de enviar
             };
 
             ws.onmessage = (event) => {
                 const message = event.data;
                 if (message.startsWith("__AUDIO__:")) {
-                    handleAudioMessage(message);
+                    handleAudioMessage(message); // Maneja el audio recibido
                 } else if (message.startsWith("__ERROR__:")) {
                     console.error("Error:", message.replace("__ERROR__:", ""));
                 } else {
-                    storyText.textContent += message;
+                    storyText.textContent += message; // Añade el texto recibido a la historia
                 }
             };
 
@@ -122,28 +147,28 @@
 
             ws.onclose = () => {
                 console.log("Conexión WebSocket cerrada");
-                sendButton.disabled = true;
+                sendButton.disabled = true; // Deshabilita el botón de enviar
             };
         }
 
-        // Manejar mensajes de audio
+        // Función para manejar mensajes de audio
         function handleAudioMessage(message) {
-            const audioBase64 = message.replace("__AUDIO__:", "");
-            const audioBytes = atob(audioBase64);
+            const audioBase64 = message.replace("__AUDIO__:", ""); // Extrae el audio en base64
+            const audioBytes = atob(audioBase64); // Decodifica de base64
             const arrayBuffer = new Uint8Array(audioBytes.length);
             for (let i = 0; i < audioBytes.length; i++) {
                 arrayBuffer[i] = audioBytes.charCodeAt(i);
             }
-            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const blob = new Blob([arrayBuffer], { type: 'audio/wav' }); // Crea un Blob de audio
             const url = URL.createObjectURL(blob);
-            audioQueue.push(url);
+            audioQueue.push(url); // Añade la URL a la cola de audio
 
             if (!isPlaying) {
-                playNextAudio();
+                playNextAudio(); // Inicia la reproducción si no está en curso
             }
         }
 
-        // Reproducir siguiente audio en la cola
+        // Función para reproducir el siguiente audio en la cola
         function playNextAudio() {
             if (audioQueue.length === 0) {
                 isPlaying = false;
@@ -156,13 +181,13 @@
             playPauseButton.disabled = false;
             stopButton.disabled = false;
             playPauseButton.textContent = 'Pausar';
-            const url = audioQueue.shift();
+            const url = audioQueue.shift(); // Obtiene la primera URL de la cola
             currentAudio = new Audio(url);
 
             currentAudio.onended = () => {
-                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(url); // Libera la memoria
                 currentAudio = null;
-                playNextAudio();
+                playNextAudio(); // Reproduce el siguiente audio
             };
 
             currentAudio.onerror = (e) => {
@@ -171,22 +196,22 @@
                 playNextAudio();
             };
 
-            currentAudio.play();
+            currentAudio.play(); // Inicia la reproducción
         }
 
-        // Enviar mensaje
+        // Función para enviar el mensaje al servidor
         function sendMessage() {
             const message = messageInput.value.trim();
             if (message && ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(message);
-                messageInput.value = '';
-                storyText.textContent = '';
+                ws.send(message); // Envía el tema al servidor
+                messageInput.value = ''; // Limpia el campo de entrada
+                storyText.textContent = ''; // Limpia el texto de la historia
             } else {
                 console.error("WebSocket no está conectado");
             }
         }
 
-        // Pausar/Reproducir audio
+        // Función para pausar o reanudar la reproducción
         function togglePlayPause() {
             if (currentAudio) {
                 if (currentAudio.paused) {
@@ -199,7 +224,7 @@
             }
         }
 
-        // Detener audio
+        // Función para detener la reproducción y limpiar la cola
         function stopAudio() {
             if (currentAudio) {
                 currentAudio.pause();
@@ -211,7 +236,7 @@
             stopButton.disabled = true;
         }
 
-        // Event listeners
+        // Eventos de los botones y campo de entrada
         sendButton.addEventListener('click', sendMessage);
         playPauseButton.addEventListener('click', togglePlayPause);
         stopButton.addEventListener('click', stopAudio);
@@ -222,7 +247,7 @@
             }
         });
 
-        // Iniciar conexión WebSocket al cargar la página
+        // Inicia la conexión WebSocket al cargar la página
         connectWebSocket();
     </script>
 </body>
