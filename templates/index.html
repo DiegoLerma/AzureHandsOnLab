@@ -123,7 +123,9 @@
 
         // Función para conectar con el servidor mediante WebSocket
         function connectWebSocket() {
-            ws = new WebSocket("ws://127.0.0.1:8000/ws"); // Asegúrate de que la URL coincida con tu servidor
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${protocol}://${window.location.host}/ws`;
+            ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 console.log("Conexión WebSocket establecida");
